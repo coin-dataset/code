@@ -17,8 +17,13 @@ Note that, these methods use frame-wise fisher vector as video representation, w
 
 ### References
 [1] Y. Zhao, Y. Xiong, L. Wang, Z. Wu, X. Tang, and D. Lin. Temporal action detection with structured segment networks. In ICCV, pages 2933–2942, 2017.
+
 [2] H. Xu, A. Das, and K. Saenko. R-C3D: region convolutional 3d network for temporal activity detection. In ICCV, pages 5794–5803, 2017.
+
 [3] A. Richard, H. Kuehne, and J. Gall. Action sets: Weakly supervised action segmentation without ordering constraints. In CVPR, pages 5987–5996, 2018.
+
 [4] A. Richard, H. Kuehne, A. Iqbal, and J. Gall. Neuralnetwork-viterbi: A framework for weakly supervised video learning. In CVPR, pages 7386–7395, 2018.
+
 [5] L. Ding and C. Xu. Weakly-supervised action segmentation with iterative soft boundary assignment. In CVPR, pages 6508–6516, 2018.
+
 [6] J. Donahue, L. A. Hendricks, M. Rohrbach, S. Venugopalan, S. Guadarrama, K. Saenko, and T. Darrell. Long-term recurrent convolutional networks for visual recognition and description. TPAMI, 39(4):677–691, 2017.

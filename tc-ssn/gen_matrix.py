@@ -1,5 +1,11 @@
 #!/usr/bin/python3
 
+"""
+Generate the constraints matrix of the label lexicon.
+
+Last revision: Danyang Zhang @THU_IVG @Mar 6th, 2019 CST
+"""
+
 import numpy as np
 import json
 import sys
@@ -10,15 +16,13 @@ npy_file = sys.argv[2]
 with open(json_file) as f:
 	database = json.load(f)["database"]
 
-label_set = list(sorted(set(database[v]["class"] for v in database)))
-action_set = set()
+label_set = list(sorted(set(database[v]["class"] for v in database))) # the set of the task labels
+action_set = set() # the set of the action labels
 for v in database:
 	action_set |= set(int(an["id"]) for an in database[v]["annotation"])
 action_set = list(sorted(action_set))
-label_count = len(label_set)
-#action_count = len(action_set)
-action_count = action_set[-1]
-#min_action_id = action_set[0]
+label_count = len(label_set) # the number of the task labels
+action_count = action_set[-1] # the number of the action labels
 matrix = np.zeros((label_count,action_count))
 
 for v in database:
