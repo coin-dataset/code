@@ -3,6 +3,7 @@
 """
 Transfer the pkl scores to npy.
 
+Contributed by Danyang Zhang @THU_IVG
 Last revision: Danyang Zhang @THU_IVG @Mar 6th, 2019 CST
 """
 

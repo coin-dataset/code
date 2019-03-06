@@ -8,6 +8,30 @@
   - numpy 1.15.3
   - terminaltables 3.1.0
 
+### The Structure of R-C3D Score File
+
+The prediction scores of R-C3D are store in a json file. This json file has the structure shown as following:
+
+```
+{
+	"version": <str>,
+	"external_data": <dict>,
+	//the meta data
+
+	"results": {
+		<video_id,str>: [
+			{
+				"score": <float>,
+				"segment": [start, end],
+				"label": <action_id, int>
+			},
+			...
+		], //predictions
+		...
+	}
+}
+```
+
 ### Result Refinement
 
 [1] Refine the scores:

@@ -9,7 +9,7 @@
   - terminaltables 3.1.0
   - pandas 0.23.4
 
-### The structure of SSN score file
+### The Structure of SSN Score File
 
 The score file dumped by SSN is in format of `pkl`. It is serialised from a python `dict` in which the paths of video frames serve as keys and a 4-element tuple of numpy arrays serve as values. The meaning of four arrays is described as following:
 
@@ -23,7 +23,7 @@ regressed_center = range_renter+range_duration*center_regression
 regressed_duration = range_duration*exp(duration_regression)
 ```
 
-### Get combined score file
+### Get Combined Score File
 
 The standalone score file of combined scores is required while refining the combined scores of RGB and Flow modality. The program derived from the original evaluation program is used to export the combined scores to a standalone `pkl` file. These programs are `fusion_pkl_generation_eval_detection_results.py` and `fusion_eval_detection_results.py`. Either the program exports the same `pkl` file.
 

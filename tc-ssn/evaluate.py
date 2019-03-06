@@ -58,7 +58,6 @@ def match(lst, ratio, ground):
 def f1(lst, ratio, ground):
 	cos_map, count_map, positive = match(lst, ratio, ground)
 	precision, recall = calc_pr(positive, len(lst), len(ground))
-	print("{:f} {:f}".format(precision,recall))
 	try:
 		score = 2*precision*recall/(precision+recall)
 	except:

@@ -3,6 +3,7 @@
 """
 Generate the constraints matrix of the label lexicon.
 
+Contributed by Danyang Zhang @THU_IVG
 Last revision: Danyang Zhang @THU_IVG @Mar 6th, 2019 CST
 """
 
