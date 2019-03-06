@@ -7,7 +7,6 @@ Last revision: Danyang Zhang @THU_IVG @Mar 6th, 2019 CST
 import os
 import numpy as np
 
-theta = 0.5 #overlap ratio
 number_label = 52
 
 # calc_pr: calculate precision and recall
