@@ -41,8 +41,6 @@ dataset_configs = get_configs(args.dataset)
 num_class = dataset_configs['num_class']
 test_prop_file = 'data/{}_proposal_list.txt'.format(dataset_configs['test_list'])
 evaluate.number_label = num_class
-# print('hhh')
-# print(test_prop_file)
 
 nms_threshold = args.nms_threshold if args.nms_threshold else dataset_configs['evaluation']['nms_threshold']
 top_k = args.top_k if args.top_k else dataset_configs['evaluation']['top_k']
@@ -241,47 +239,37 @@ def callback(rst):
 
 zdy_miou = np.zeros((num_class,))
 
-pku_gt_by_class = [[] for i in range(num_class)]
-pku_prediction_by_class = [[] for i in range(num_class)]
-pku_gt = []
-pku_prediction = []
+gt_by_class = [[] for i in range(num_class)]
+prediction_by_class = [[] for i in range(num_class)]
+gt = []
+prediction = []
 for cls in range(num_class):
 	for zdy_record in gt_by_cls[cls].itertuples():
-		pku_gt_by_class[cls].append([cls,zdy_record[2],zdy_record[3],1,zdy_record[1]])
-	pku_gt += pku_gt_by_class[cls]
+		gt_by_class[cls].append([cls,zdy_record[2],zdy_record[3],1,zdy_record[1]])
+	gt += gt_by_class[cls]
 	for zdy_record in plain_detections[cls].itertuples():
-		pku_prediction_by_class[cls].append([zdy_record[2],zdy_record[3],zdy_record[4],zdy_record[5],zdy_record[1]])
-	pku_prediction += pku_prediction_by_class[cls]
+		prediction_by_class[cls].append([zdy_record[2],zdy_record[3],zdy_record[4],zdy_record[5],zdy_record[1]])
+	prediction += prediction_by_class[cls]
 	if cls!=0:
-		zdy_miou[cls] = evaluate.miou(pku_prediction_by_class[cls],pku_gt_by_class[cls])
+		zdy_miou[cls] = evaluate.miou(prediction_by_class[cls],gt_by_class[cls])
 miou = zdy_miou[1:].mean()
 
-print(str(len(pku_gt)))
-print(str(len(pku_prediction)))
+print(str(len(gt)))
+print(str(len(prediction)))
 
 f1_values = np.zeros((len(iou_range),))
 
 pool = Pool(args.ap_workers)
 jobs = []
 for iou_idx, min_overlap in enumerate(iou_range):
-#for iou_idx, min_overlap in enumerate([0.6]):
 	for cls in range(num_class):
-	#for cls in [304]:
-		#jobs.append(pool.apply_async(eval_ap, args=([min_overlap], iou_idx, cls, gt_by_cls[cls], plain_detections[cls],),callback=callback))
-		jobs.append(pool.apply_async(eval_ap, args=([min_overlap], iou_idx, cls, pku_gt_by_class[cls], pku_prediction_by_class[cls],),callback=callback))
-	f1 = evaluate.f1(pku_prediction,min_overlap,pku_gt)
+		jobs.append(pool.apply_async(eval_ap, args=([min_overlap], iou_idx, cls, gt_by_class[cls], prediction_by_class[cls],),callback=callback))
+	f1 = evaluate.f1(prediction,min_overlap,gt)
 	f1_values[iou_idx] = f1
 pool.close()
 pool.join()
 print("Evaluation done.\n\n")
 
-"""for zdy_i,zdy_iou in enumerate(iou_range):
-	with open("accuracy_per_cls/cls_pku{:f}.txt".format(zdy_iou),"w") as zdy_f:
-		for zdy_cls in range(num_class):
-			zdy_f.write("{:d}\t{:.04f}\n".format(zdy_cls,ap_values[zdy_cls][zdy_i]))"""
-
-#map_iou = ap_values[1:,:].mean(axis=0)
-#mar = ar_values[1:,:].mean(axis=0)
 map_iou = ap_values.mean(axis=0)
 mar = ar_values.mean(axis=0)
 display_title = "Detection Performance on {}".format(args.dataset)

@@ -38,8 +38,6 @@ args = parser.parse_args()
 dataset_configs = get_configs(args.dataset)
 num_class = dataset_configs['num_class']
 test_prop_file = 'data/{}_proposal_list.txt'.format(dataset_configs['test_list'])
-# print('hhh')
-# print(test_prop_file)
 
 nms_threshold = args.nms_threshold if args.nms_threshold else dataset_configs['evaluation']['nms_threshold']
 top_k = args.top_k if args.top_k else dataset_configs['evaluation']['top_k']

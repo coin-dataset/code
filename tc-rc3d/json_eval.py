@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+"""
+Evaluation program for R-C3D. 
+
+Contributed by Danyang Zhang @THU_IVG
+Last revision: Danyang Zhang @THU_IVG @Mar 6th, 2019 CST
+"""
+
 import json
 import evaluate
 import sys
@@ -38,7 +45,7 @@ print("Groundtruths read in.")
 with open(result_file) as f:
 	results = json.load(f)["results"]
 
-top_k = 60
+top_k = 60 # the same as the default set of COIN on SSN
 
 prediction_by_cls = [[] for i in range(label_count)]
 all_prediction = []
@@ -52,7 +59,7 @@ for v in results:
 
 print("Results read in.")
 
-# perform nms
+# perform NMS
 nms_threshold = 0.6
 nmsed_prediction_by_cls = [[] for i in range(label_count)]
 for cls in prediction_by_cls:

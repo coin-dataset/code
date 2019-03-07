@@ -1,21 +1,12 @@
-# Copyright (c) 2017 Chunhui_Liu@STRUCT_ICST_PKU, All rights reserved.
-#
-# evaluation protocols used for PKU-MMD dataset
-# http://www.icst.pku.edu.cn/struct/Projects/PKUMMD.html
-#
-# In proposal folder:
-#	each file contains results for one video.
-#	several lines in one file,
-#	each line contain: label, start_frame, end_frame, confidence  
+"""
+Evaluation utilisation function model. Derived from the evaluation code from PKU-MMD (https://github.com/ECHO960/PKU-MMD). Several mistakes and imcompatible with python3 features are corrected.
+
+Last revision: Danyang Zhang @THU_IVG @Mar 6th, 2019 CST
+"""
 
 import os
 import numpy as np
-#import matplotlib.pyplot as plt
 
-source_folder = '/home/lch/PKU-3D/result/detc/'
-ground_folder = '/mnt/hdd/PKUMMD/test_label_0330/'
-fig_folder = '/home/lch/PKU-3D/src/fig/'
-theta = 0.5 #overlap ratio
 number_label = 52
 
 # calc_pr: calculate precision and recall
@@ -54,44 +45,11 @@ def match(lst, ratio, ground):
 		for y in index_map[int(lst[x][0])]:
 			if (overlap(lst[x], ground[y]) < ratio): continue
 			if cos_map[x]!=-1 and overlap(lst[x], ground[y]) < overlap(lst[x], ground[cos_map[x]]): continue
-			#if count_map[y]>0:
-				#continue
 			cos_map[x] = y
 		if (cos_map[x] != -1): count_map[cos_map[x]] += 1
 	positive = sum([(x>0) for x in count_map])
 	return cos_map, count_map, positive
 
-# plot_fig: plot precision-recall figure of given proposal
-#	@lst: list of proposals(label, start, end, confidence, video_name)
-#	@ratio: overlap ratio
-#	@ground: list of ground truth(label, start, end, confidence, video_name)
-#	@method: method name
-"""def plot_fig(lst, ratio, ground, method):
-	lst.sort(key = lambda x:x[3]) # sorted by confidence
-	cos_map, count_map, positive = match(lst, ratio, ground)
-	number_proposal = len(lst)
-	number_ground = len(ground)
-	old_precision, old_recall = calc_pr(positive, number_proposal, number_ground)
-
-	recalls = [old_recall]
-	precisions = [old_precision] 
-	for x in xrange(len(lst)):
-		number_proposal -= 1;
-		if (cos_map[x] == -1): continue
-		count_map[cos_map[x]] -= 1;
-		if (count_map[cos_map[x]] == 0) : positive -= 1;
-
-		precision, recall = calc_pr(positive, number_proposal, number_ground)   
-		if precision>old_precision: 
-			old_precision = precision
-		recalls.append(recall)
-		precisions.append(old_precision)
-		old_recall = recall
-	fig = plt.figure()
-	plt.axis([0,1,0,1])
-	plt.plot(recalls,precisions,'r')  
-	plt.savefig('%s%s.png'%(fig_folder,method))"""
- 
 # f1-score:
 #	@lst: list of proposals(label, start, end, confidence, video_name)
 #	@ratio: overlap ratio
@@ -99,7 +57,6 @@ def match(lst, ratio, ground):
 def f1(lst, ratio, ground):
 	cos_map, count_map, positive = match(lst, ratio, ground)
 	precision, recall = calc_pr(positive, len(lst), len(ground))
-	print("{:f} {:f}".format(precision,recall))
 	try:
 		score = 2*precision*recall/(precision+recall)
 	except:
@@ -136,14 +93,15 @@ def ap(lst, ratio, ground):
 		if precision>old_precision: 
 			old_precision = precision
 		old_recall = recall
-	#print(score)
 	return score,total_recall
 
 def miou(lst,ground):
+	"""
+	calculate mIoU through all the predictions
+	"""
 	cos_map,count_map,positive = match(lst,0,ground)
 	miou = 0
 	count = len(lst)
-	#print("{:d}: {:d}".format(count,len(ground)))
 	real_count = 0
 	for x in range(count):
 		if cos_map[x]!=-1:
@@ -152,10 +110,12 @@ def miou(lst,ground):
 	return miou/float(real_count) if real_count!=0 else 0.
 
 def miou_per_v(lst,ground):
+	"""
+	calculate mIoU through all the predictions in one video first, then average the obtained mIoUs through single video.
+	"""
 	cos_map,count_map,positive = match(lst,0,ground)
 	count = len(lst)
 	v_miou = {}
-	#print("{:d}: {:d}".format(count,len(ground)))
 	for x in range(count):
 		if cos_map[x]!=-1:
 			v_id = lst[x][4]
@@ -169,64 +129,3 @@ def miou_per_v(lst,ground):
 		miou += v_miou[v][0]/float(v_miou[v][1])
 	miou /= len(v_miou)
 	return miou
-
-# process: calculate scores for each method
-"""def process(method):
-	folderpath = source_folder+method+'/'
-
-	v_props = [] # proposal list separated by video
-	v_grounds = [] # ground-truth list separated by video
-	
-	#========== find all proposals separated by video========
-	for video in os.listdir(folderpath):
-		prop = open(folderpath+video,'r').readlines()
-		prop = [prop[x].replace(",", " ") for x in xrange(len(prop))]
-		prop = [[float(y) for y in prop[x].split()] for x in xrange(len(prop))]
-		ground = open(ground_folder+video,'r').readlines()
-		ground = [ground[x].replace(",", " ") for x in xrange(len(ground))]
-		ground = [[float(y) for y in ground[x].split()] for x in xrange(len(ground))]
-		#append video name
-		for x in prop: x.append(video)
-		for x in ground: x.append(video) 
-		v_props.append(prop)
-		v_grounds.append(ground)
-
-	#========== find all proposals separated by action categories========
-	# proposal list separated by class
-	a_props = [[] for x in xrange(number_label)]
-	# ground-truth list separated by class
-	a_grounds = [[] for x in xrange(number_label)]
-
-	for x in xrange(len(v_props)):
-		for y in xrange(len(v_props[x])):
-			a_props[int(v_props[x][y][0])].append(v_props[x][y])
-	
-	for x in xrange(len(v_grounds)):
-		for y in xrange(len(v_grounds[x])):
-			a_grounds[int(v_grounds[x][y][0])].append(v_grounds[x][y])
-
-	#========== find all proposals========
-	all_props = sum(a_props,[])
-	all_grounds = sum(a_grounds, [])
-
-	#========== calculate protocols========
-	print "================================================"
-	print "evaluation for method: %s"%method
-	print "---- for theta = %lf"%theta
-	print "-------- F1 = ", f1(all_props, theta,all_grounds)
-	print "-------- AP = ", ap(all_props, theta,all_grounds)
-	print "-------- mAP_action = ", sum([ap(a_props[x+1], theta, a_grounds[x+1]) \
-		for x in xrange(number_label-1)])/(number_label-1)
-	print "-------- mAP_video = ", sum([ap(v_props[x], theta, v_grounds[x]) \
-		for x in xrange(len(v_props))])/len(v_props)
-	print "-------- 2DAP = ", sum([ap(all_props, (ratio+1)*0.05, all_grounds) \
-		for ratio in xrange(20)])/20
-
-	plot_fig(all_props, theta, all_grounds, method)
-	print "===============================================" """
-
-if __name__ == '__main__':
-	methods = os.listdir(source_folder)
-	methods.sort()
-	for method in methods:
-		process(method)
