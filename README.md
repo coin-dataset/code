@@ -7,7 +7,7 @@ In this task, we aim to localize a series of steps and recognize their correspon
 * [R-C3D](https://github.com/VisionLearningGroup/R-C3D) [2]
 * Our Task Consistency Approach. Please see [tc-rc3d](tc-rc3d) and [tc-ssn](tc-ssn) for details.
 
-The [evaluation module](evaluate.py) utilised in our experiments is derived from [PKU-MMD](https://github.com/ECHO960/PKU-MMD). In order to obtain more accurate results, we made a few modification and several additional evaluation functions are supplied. In the module, functions like `ap`,`f1`,`miou`, etc. are provided. To invoke this module to perform evaluation, the module variable `evaluate.number_label` should be set to the number of the action labels. The functions in this module accept predictions and groundtruths in format shown as following:
+The [evaluation module](evaluate.py) utilised in our experiments is derived from [PKU-MMD](https://github.com/ECHO960/PKU-MMD). In order to obtain more accurate results, we made a little modification and several additional evaluation functions are supplied. In the module, functions like `ap`,`f1`,`miou`, etc. are provided. To invoke this module to perform evaluation, the module variable `evaluate.number_label` should be set to the number of the action labels. The functions in this module accept predictions and groundtruths in format shown as following:
 
 ```
 [action_id, start_of_segment, end_of_segment, confidence or score (for groundtruth, it could be arbitrary value), video_name]
