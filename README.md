@@ -7,7 +7,7 @@ In this task, we aim to localize a series of steps and recognize their correspon
 * [R-C3D](https://github.com/VisionLearningGroup/R-C3D) [2]
 * Our Task Consistency Approach. Please see [tc-rc3d](tc-rc3d) and [tc-ssn](tc-ssn) for details.
 
-The [evaluation module](evaluate.py) utilised in our experiments is derived from [PKU-MMD](https://github.com/ECHO960/PKU-MMD). Several mistakes in the original program are corrected and several additional evaluation functions are supplied. In the module, functions like `ap`,`f1`,`miou`, etc. are provided. To invoke this module to perform evaluation, the module variable `evaluate.number_label` should be set to the number of the action labels. The functions in this module accept predictions and groundtruths in format shown as following:
+The [evaluation module](evaluate.py) utilised in our experiments is derived from [PKU-MMD](https://github.com/ECHO960/PKU-MMD). In order to obtain more accurate results, we made a few modification and several additional evaluation functions are supplied. In the module, functions like `ap`,`f1`,`miou`, etc. are provided. To invoke this module to perform evaluation, the module variable `evaluate.number_label` should be set to the number of the action labels. The functions in this module accept predictions and groundtruths in format shown as following:
 
 ```
 [action_id, start_of_segment, end_of_segment, confidence or score (for groundtruth, it could be arbitrary value), video_name]
@@ -22,6 +22,8 @@ The goal of this task is to assign each video frame with a step label. The follo
 * [TCFPN-ISBA](https://github.com/Zephyr-D/TCFPN-ISBA) [5]
 
 Note that, these methods use frame-wise fisher vector as video representation, which comes with huge computation and storage cost on the COIN dataset (the calculation of fisher vector is based on the improved Dense Trajectory (iDT) representation, which requires huge computation cost and storage space). To address this, we employed a bidirectional LSTM on the top of a VGG16 network to extract dynamic feature of a video sequence[6].
+
+We adopted frame-wise accuracy (FA), which is a common benchmarking metric for action segmentation. It is computed by first counting the number of correctly predicted frames, and dividing it by the number of total video frames.
 
 ### References
 [1] Y. Zhao, Y. Xiong, L. Wang, Z. Wu, X. Tang, and D. Lin. Temporal action detection with structured segment networks. In ICCV, pages 2933–2942, 2017.
