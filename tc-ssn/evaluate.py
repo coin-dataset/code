@@ -1,5 +1,5 @@
 """
-Evaluation utilisation function model. Derived from the evaluation code from PKU-MMD (https://github.com/ECHO960/PKU-MMD). Several mistakes and imcompatible with python3 features are corrected.
+Evaluation utilisation function model. Derived from the evaluation code from PKU-MMD (https://github.com/ECHO960/PKU-MMD). A little modification is made to obtain more accurate results. 
 
 Last revision: Danyang Zhang @THU_IVG @Mar 6th, 2019 CST
 """
