@@ -21,7 +21,7 @@ Here `<json_dataset>` is the JSON annotation file with the same structure as our
 
 * `init_dist` - non-normalized distribution of the first step in a video with shape like `(1, nb_step)`.
 * `normalized_init_dist` - the normalized version of `init_dist`.
-* `frequency_mat` - non-normalized transfer matrix which shape like `(nb_step, nb_step)`, in which `t[i][j]` denotes the statistical frequency of transfer from step $i$ to step $j$.
+* `frequency_mat` - non-normalized transfer matrix which shape like `(nb_step, nb_step)`, in which `t[i][j]` denotes the statistical frequency of transfering from step i to step j.
 * `normalized_frequency_mat` - the normalized version of `frequency_mat`.
 
 #### `perform_refine.py`
