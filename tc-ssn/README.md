@@ -19,7 +19,7 @@ The score file dumped by SSN is in format of `pkl`. It is serialised from a pyth
 * The shape of the 4th array in the tuple is (N,K,2). There are the regression scores in this array. The regression score is given as a 2-element array \[`center_regression`, `duration_regression`\]. The regression operation could be formularised as:
 
 ```
-regressed_center = range_renter+range_duration*center_regression
+regressed_center = range_center+range_duration*center_regression
 regressed_duration = range_duration*exp(duration_regression)
 ```
 
