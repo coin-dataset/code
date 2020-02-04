@@ -18,12 +18,11 @@ import itertools
 import concurrent.futures as con
 
 import terminaltables
-import matplotlib.pyplot as plt
 
 def _softmax(scores):
     exp_scores = np.exp(scores)
     softmax_scores = exp_scores/np.sum(exp_scores, axis=-1)[:, None]
-    return softmax_scores
+    return np.nan_to_num(softmax_scores)
 
 _simple_iou = lambda r1, r2: max(0, min(r1[1], r2[1])-max(r1[0], r2[0])) /\
         (max(r1[1], r2[1])-min(r1[0], r2[0]))
@@ -43,15 +42,15 @@ def construct_actionness_distribution(combined_score, interval, nb_slot, density
     nb_proposal, nb_action = combined_score.shape
 
     proposal_score_along_time_axis = np.zeros((nb_proposal, nb_slot+1, nb_action))
-    independent_variables = np.arange(0, nb_slot+1)
+    independent_variables = np.arange(0, nb_slot+1)*100./nb_slot
 
     #reduced_score = np.sum(combined_score, axis=1)
     interval_center = (interval[:, 0] + interval[:, 1])/2.
     interval_duration = (interval[:, 1] - interval[:, 0])/2.
-    interval_center *= float(nb_slot)
-    interval_duration *= float(nb_slot)
+    interval_center *= 100.
+    interval_duration *= 100.
     for i in range(nb_proposal):
-        proposal_score_along_time_axis[i, :] = combined_score[i][None, :]*density_function(independent_variables, interval_center[i], interval_duration[i])[:, None]
+        proposal_score_along_time_axis[i, :] = np.nan_to_num(combined_score[i][None, :]*density_function(independent_variables, interval_center[i], interval_duration[i])[:, None])
     dist_along_time_axis = np.sum(proposal_score_along_time_axis, axis=0)
 
     return proposal_score_along_time_axis, dist_along_time_axis
@@ -63,6 +62,75 @@ def watershed_method(reduced_distribution, comparator, termination_indicator, in
         if comparator(termination_indicator(peak_detection), indicator_thrd):
             break
     return peak_detection
+
+dist_funcs = {
+        "gaussian": lambda x, mean, stdvar: np.exp(-(x-mean)**2/(2*stdvar**2))/(np.sqrt(2*np.pi)*stdvar), # normal distribution, probability density function
+        "gaussian2": lambda x, m, h_std: np.exp(-(x-m)**2/(2*(2*h_std)**2))/(np.sqrt(2*np.pi)*(2*h_std)), # normal distribution, probability density function
+        "gaussian5": lambda x, m, h_std: np.exp(-(x-m)**2/(2*(5*h_std)**2))/(np.sqrt(2*np.pi)*(5*h_std)), # normal distribution, probability density function
+        "gaussian0.5": lambda x, m, h_std: np.exp(-(x-m)**2/(2*(h_std/2.)**2))/(np.sqrt(2*np.pi)*(h_std/2.)), # normal distribution, probability density function
+        "uniform": lambda x, center, half_span: np.where(np.absolute(x-center)<=half_span, 0.5/half_span, 0.),
+        "triangle": lambda x, cen, h_sp: np.clip(1.-np.absolute(x-cen)/h_sp, 0., 1.)/h_sp
+}
+
+def check_max_length(peak_detection):
+    groups = itertools.groupby(peak_detection)
+    lengths = [len(list(g)) for k, g in groups if k]
+    return max(lengths) if len(lengths)>0 else 0.
+def check_min_length(peak_detection):
+    groups = itertools.groupby(peak_detection)
+    lengths = [len(list(g)) for k, g in groups if k]
+    return min(lengths) if len(lengths)>0 else 0.
+def check_avg_length(peak_detection):
+    groups = itertools.groupby(peak_detection)
+    lengths = [len(list(g)) for k, g in groups if k]
+    return sum(lengths)/float(len(lengths)) if len(lengths)>0 else 0.
+def check_max_gap(peak_detection):
+    groups = itertools.groupby(peak_detection)
+    lengths = [len(list(g)) for k, g in groups if not k]
+    return max(lengths) if len(lengths)>0 else 0.
+def check_min_gap(peak_detection):
+    groups = itertools.groupby(peak_detection)
+    lengths = [len(list(g)) for k, g in groups if not k]
+    return min(lengths) if len(lengths)>0 else 0.
+def check_avg_gap(peak_detection):
+    groups = itertools.groupby(peak_detection)
+    lengths = [len(list(g)) for k, g in groups if not k]
+    return sum(lengths)/float(len(lengths)) if len(lengths)>0 else 0.
+check_positive_proportion = lambda p: np.sum(p)/float(len(p))
+termination_criteria = {
+        "check_avg_gap": check_avg_gap,
+        "check_max_gap": check_max_gap,
+        "check_min_gap": check_min_gap,
+
+        "check_avg_length": check_avg_length,
+        "check_max_length": check_max_length,
+        "check_min_length": check_min_length,
+
+        "check_positive_proportion": check_positive_proportion
+}
+
+arithmetic_mean = lambda sc1, sc2: markov_weights[0]*sc1 + markov_weights[1]*sc2
+def rms_fuse(score1, score2):
+    fused_score = np.sqrt(arithmetic_mean(score1**2, score2**2))
+    return np.nan_to_num(fused_score/np.sum(fused_score, keepdims=True))
+def geometric_mean(score1, score2):
+    fused_score = score1**markov_weights[0] * score2**markov_weights[1]
+    return np.nan_to_num(fused_score/np.sum(fused_score, keepdims=True))
+def harmonic_mean(score1, score2):
+    fused_score = np.nan_to_num(1./
+            (np.nan_to_num(markov_weights[0]/score1) +
+                np.nan_to_num(markov_weights[1]/score2)))
+    return np.nan_to_num(fused_score/np.sum(fused_score, keepdims=True))
+def max_pool(score1, score2):
+    fused_score = np.maximum(score1, score2)
+    return np.nan_to_num(fused_score/np.sum(fused_score, keepdims=True))
+fusion_functions = {
+        "arithmetic_mean": arithmetic_mean,
+        "root_mean_square": rms_fuse,
+        "geometric_mean": geometric_mean,
+        "harmonic_mean": harmonic_mean,
+        "max_pooling": max_pool
+}
 
 if __name__=="__main__":
     # load scores and merge them
@@ -78,34 +146,44 @@ if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--matrix", type=str, required=True, help="consistency constraints matrix (numpy matrix)")
-    parser.add_argument("--scores", nargs="+", type=str, required=True, help="output of SSN (pkl-format score file)")
-    parser.add_argument("--weights", nargs="+", type=float, required=False, help="custom weights of the different score files")
-    parser.add_argument("--groundtruth", type=str, required=True, help="groundtruth of COIN")
+    parser.add_argument("--matrix", type=str, required=True, help="Consistency constraints matrix (numpy matrix).")
+    parser.add_argument("--scores", nargs="+", type=str, required=True, help="Output of SSN (pkl-format score file).")
+    parser.add_argument("--weights", nargs="+", type=float, required=False, help="Custom weights of the different score files.")
+    parser.add_argument("--groundtruth", type=str, required=True, help="Groundtruth of COIN.")
 
-    parser.add_argument("--refinement", nargs="+", type=str, choices=["TC", "OD"], required=False, help="the refinement expected to be applied")
+    parser.add_argument("--refinement", nargs="+", type=str, choices=["TC", "OD"], required=False, help="The refinement expected to be applied.")
 
-    parser.add_argument("--attenuation-coefficient", default=np.exp(-2.), type=float, required=False, help="attenuation coefficient for TC, default to exp(-2)")
+    parser.add_argument("--attenuation-coefficient", default=np.exp(-2.), type=float, required=False, help="Attenuation coefficient for TC, default to exp(-2).")
 
-    parser.add_argument("--markov-matrix", type=str, help="markov matrix for the markov method")
-    parser.add_argument("--refine-head-proposal", action="store_true", required=False, help="refine the head proposal as well")
-    parser.add_argument("--refinement-weights", nargs=2, type=float, required=False, help="refinement weights")
+    parser.add_argument("--markov-matrix", type=str, help="Markov matrix for the markov method.")
+    parser.add_argument("--refine-head-proposal", action="store_true", required=False, help="Refine the head proposal as well.")
+    parser.add_argument("--refinement-weights", nargs=2, type=float, required=False, help="Refinement weights.")
 
-    parser.add_argument("--density-function", default="gaussian", type=str, choices=["uniform", "gaussian"], required=False, help="density function to use")
-    parser.add_argument("--min-background-gap", default=6, type=int, required=False, help="minimum background gap")
-    #parser.add_argument("--max-positive-length", default=10, type=int, required=False, help="maximum positive range length")
-    #parser.add_argument("--max-positive-proportion", default=0.40, type=float, required=False, help="maximum positive frame proportion")
+    parser.add_argument("--nb-slots", default=100, type=int, required=False, help="Number of the time slots.")
+    parser.add_argument("--density-function", default="gaussian", type=str, choices=list(dist_funcs.keys()), required=False, help="Density function to use.")
+    parser.add_argument("--termination-criteria", default="check_avg_gap", type=str, choices=list(termination_criteria.keys()), required=False, help="Termination criteria of watershed method.")
+    parser.add_argument("--min-background-gap", default=6, type=int, required=False, help="Minimum background gap.")
+    parser.add_argument("--max-positive-length", default=10, type=int, required=False, help="Maximum positive range length.")
+    parser.add_argument("--max-positive-proportion", default=0.40, type=float, required=False, help="Maximum positive frame proportion.")
+    parser.add_argument("--fusion-function", default="arithmetic_mean", type=str, choices=list(fusion_functions.keys()), required=False, help="Fusion fuction to use.")
 
-    parser.add_argument("--topk", type=int, default=60, required=False, help="only top k prediections in one video will be preserved")
-    parser.add_argument("--nms", type=float, default=0.6, required=False, help="NMS threshold")
-    parser.add_argument("--no-extra-background", action="store_true", required=False, help="if specified, no extra background column will be attracted to the consistency matrix, which means that the background action category has already been included into the consistency matrix")
-    parser.add_argument("--nb-thread", type=int, default=32, required=False, help="the number of thread to use")
+    parser.add_argument("--combined", action="store_true", required=False, help="If specified, each of the input score items should comprise 3 arrays in the tuple rather than 4, which means the combined scores don't need to be deduced by the actionness and completeness scores. This feature is used to be compatible with the predictions extracted from the models other than SSN.")
+    parser.add_argument("--regressed", action="store_true", required=False, help="This option implys that the last element in the tuple is the regressed intervals rather than the regression coefficents.")
+    parser.add_argument("--no-background", action="store_true", required=False, help="That this option is set indicates that there are no background predictions in the input and \"0\" doesn't denote groundtruth label any more and thus the action ids in groundtruth will be reduced by 1 and the mininum action id will start from \"0\" rather than \"1\". This option implicitly implys \"--no-extra-background\".")
+
+    parser.add_argument("--topk", type=int, default=60, required=False, help="Only top k prediections in one video will be preserved.")
+    parser.add_argument("--combined-threshold", type=float, required=False, help="If specified, \"--topk\" will be ignored. Only the predictions with non-negative score higher than this threshold will be preserved.")
+    parser.add_argument("--nms", type=float, default=0.6, required=False, help="NMS threshold.")
+    parser.add_argument("--no-extra-background", action="store_true", required=False, help="If specified, no extra background column will be attracted to the consistency matrix and the markov matrix, which means that the background action category has already been included into the consistency matrix and the markov matrix.")
+    parser.add_argument("--nb-thread", type=int, default=32, required=False, help="The number of thread to use.")
     args = parser.parse_args()
+
+    no_extra_background = args.no_background or args.no_extra_background
 
     # load consistency matrix
     if os.path.exists(args.matrix):
         consistency_matrix = np.load(args.matrix)
-        if not args.no_extra_background:
+        if not no_extra_background:
             consistency_matrix = np.concatenate([np.zeros((consistency_matrix.shape[0], 1)), consistency_matrix],
                 axis=1)
     else:
@@ -136,13 +214,23 @@ if __name__=="__main__":
 
     ref_score_dict = scores[0]
     vids = ref_score_dict.keys()
-    score_dict = {
-            k: (ref_score_dict[k][0],
-                sum(w*s[k][1] for w, s in zip(weights, scores)) / weight_sum,
-                sum(w*s[k][2] for w, s in zip(weights, scores)) / weight_sum,
-                sum(w*s[k][3] for w, s in zip(weights, scores)) / weight_sum)
-            for k in vids
-    }
+    if args.combined:
+        score_dict = {
+                k: (ref_score_dict[k][0],
+                    sum(w*s[k][1] for w, s in zip(weights, scores)) / weight_sum,
+                    sum(w*s[k][2] for w, s in zip(weights, scores)) / weight_sum)
+                for k in vids
+        }
+    else:
+        score_dict = {
+                k: (ref_score_dict[k][0],
+                    sum(w*s[k][1] for w, s in zip(weights, scores)) / weight_sum,
+                    sum(w*s[k][2] for w, s in zip(weights, scores)) / weight_sum,
+                    sum(w*s[k][3] for w, s in zip(weights, scores)) / weight_sum)
+                    #ref_score_dict[k][2],
+                    #ref_score_dict[k][3])
+                for k in vids
+        }
 
     print("Score loaded and merged")
 
@@ -156,9 +244,10 @@ if __name__=="__main__":
 
     nb_groundtruth_by_action_class = [0] * consistency_matrix.shape[1]
     groundtruth_dict = {}
+    step_id_bias = 1 if args.no_background else 0
     for v in database:
         if database[v]["subset"] != "training":
-            groundtruth_dict[v] = [(int(s["id"]),
+            groundtruth_dict[v] = [(int(s["id"])-step_id_bias,
                 float(s["segment"][0])/database[v]["duration"],
                 float(s["segment"][1])/database[v]["duration"]) for s in database[v]["annotation"]]
             for g in groundtruth_dict[v]:
@@ -192,55 +281,37 @@ if __name__=="__main__":
         return combined_score
 
     def perform_clustering_refinement(combined_score, interval):
-        dist_funcs = {
-                "gaussian": lambda x, mean, stdvar: np.exp(-(x-mean)**2/(2*stdvar**2))/(np.sqrt(2*np.pi)*stdvar), # normal distribution, probability density function
-                "uniform": lambda x, center, span: np.where(np.absolute(x-center)<=span, 0.5/span, 0.)
-        }
         combined_score  = np.copy(combined_score)
 
         # construct distribution along time axis
         nb_proposal, nb_action = combined_score.shape
 
-        proposal_score_along_time_axis, dist_along_time_axis = construct_actionness_distribution(combined_score, interval, 100, dist_funcs[args.density_function])
+        proposal_score_along_time_axis, dist_along_time_axis = construct_actionness_distribution(combined_score, interval, args.nb_slots, dist_funcs[args.density_function])
 
         # split into proposals
-        def check_max_length(peak_detection):
-            groups = itertools.groupby(peak_detection)
-            lengths = [len(list(g)) for k, g in groups if k]
-            return max(lengths) if len(lengths)>0 else 0.
-        def check_min_length(peak_detection):
-            groups = itertools.groupby(peak_detection)
-            lengths = [len(list(g)) for k, g in groups if k]
-            return min(lengths) if len(lengths)>0 else 0.
-        def check_avg_length(peak_detection):
-            groups = itertools.groupby(peak_detection)
-            lengths = [len(list(g)) for k, g in groups if k]
-            return sum(lengths)/float(len(lengths)) if len(lengths)>0 else 0.
-        def check_max_gap(peak_detection):
-            groups = itertools.groupby(peak_detection)
-            lengths = [len(list(g)) for k, g in groups if not k]
-            return max(lengths) if len(lengths)>0 else 0.
-        def check_min_gap(peak_detection):
-            groups = itertools.groupby(peak_detection)
-            lengths = [len(list(g)) for k, g in groups if not k]
-            return min(lengths) if len(lengths)>0 else 0.
-        def check_avg_gap(peak_detection):
-            groups = itertools.groupby(peak_detection)
-            lengths = [len(list(g)) for k, g in groups if not k]
-            return sum(lengths)/float(len(lengths)) if len(lengths)>0 else 0.
-        check_positive_proportion = lambda p: np.sum(p)/float(len(p))
         #termination_indicator = check_avg_length
         #termination_indicator = check_max_length
         #termination_indicator = check_min_length
         #termination_indicator = check_max_gap
         #termination_indicator = check_min_gap
-        termination_indicator = check_avg_gap
+        #termination_indicator = check_avg_gap
         #termination_indicator = check_positive_proportion
         #comparator = np.greater_equal
-        comparator = np.less_equal
+        #comparator = np.less_equal
         #indicator_thrd = args.max_positive_length
-        indicator_thrd = args.min_background_gap
+        #indicator_thrd = args.min_background_gap
         #indicator_thrd = args.max_positive_proportion
+
+        termination_indicator = termination_criteria[args.termination_criteria]
+        if "gap" in args.termination_criteria:
+            comparator = np.less_equal
+            indicator_thrd = args.min_background_gap
+        elif "length" in args.termination_criteria:
+            comparator = np.greater_equal
+            indicator_thrd = args.max_positive_length
+        else:
+            comparator = np.greater_equal
+            indicator_thrd = args.max_positive_proportion
 
         reduced_distribution = np.sum(dist_along_time_axis, axis=1)
         peak_detection = watershed_method(reduced_distribution, comparator, termination_indicator, indicator_thrd)
@@ -258,20 +329,22 @@ if __name__=="__main__":
         normalized_cluster_score = np.nan_to_num(normalized_cluster_score)
 
         # apply that refinement
-        init_dist = np.squeeze(markov_dict["normalized_init_dist"]) if args.no_extra_background\
+        init_dist = np.squeeze(markov_dict["normalized_init_dist"]) if no_extra_background\
                 else np.concatenate([[0.],
                     np.squeeze(markov_dict["normalized_init_dist"])])
         markov_matrix = markov_dict["normalized_frequency_mat"]
-        if not args.no_extra_background:
+        if not no_extra_background:
             markov_matrix = np.concatenate([np.zeros((markov_matrix.shape[0], 1)), markov_matrix], axis=1)
             markov_matrix = np.concatenate([np.zeros((1, markov_matrix.shape[1])), markov_matrix], axis=0)
             markov_matrix[0][0] = 1.
 
+        fuse_scores = fusion_functions[args.fusion_function]
+
         if args.refine_head_proposal and len(normalized_cluster_score)>=1:
-            normalized_cluster_score[0] = markov_weights[0]*normalized_cluster_score[0] + markov_weights[1]*init_dist
+            normalized_cluster_score[0] = fuse_scores(normalized_cluster_score[0], init_dist)
         for i in range(1, len(normalized_cluster_score)):
-            normalized_cluster_score[i] = markov_weights[0]*normalized_cluster_score[i] +\
-                    markov_weights[1]*np.matmul(normalized_cluster_score[i-1], markov_matrix)
+            normalized_cluster_score[i] = fuse_scores(normalized_cluster_score[i],
+                    np.matmul(normalized_cluster_score[i-1], markov_matrix))
 
         refined_cluster_score = normalized_cluster_score*cluster_score_sum[:, None]
 
@@ -289,15 +362,19 @@ if __name__=="__main__":
         return combined_score
 
     def preprocess_predictions(vid):
-        # calculate combined scores
-        actionness = score_dict[vid][1][:, 1:]
-        completeness = score_dict[vid][2]
+        if not args.combined:
+            # calculate combined scores
+            actionness = score_dict[vid][1][:, 1:]
+            completeness = score_dict[vid][2]
 
-        combined_score = _softmax(actionness)*np.exp(completeness)
-        # shape: (nb_proposal, nb_action_category)
+            combined_score = _softmax(actionness)*np.exp(completeness)
+            # shape: (nb_proposal, nb_action_category)
+            regression = score_dict[vid][3]
+        else:
+            combined_score = score_dict[vid][1]
+            regression = score_dict[vid][2]
 
         interval = score_dict[vid][0]
-        regression = score_dict[vid][3]
 
         # refine combined scores
         # infer the likely task of video
@@ -329,24 +406,32 @@ if __name__=="__main__":
         # sort and retrieve the top k
         sorted_indices = np.argsort(combined_score, axis=None)
         video_prediction_info = np.reshape(video_prediction_info, (-1, 6))
-        video_prediction_info = video_prediction_info[sorted_indices[:-args.topk-1:-1]]
+        if args.combined_threshold is not None:
+            video_prediction_info = video_prediction_info[sorted_indices[::-1]]
+            video_prediction_info = video_prediction_info[video_prediction_info[:, 5]>args.combined_threshold]
+        else:
+            video_prediction_info = video_prediction_info[sorted_indices[:-args.topk-1:-1]]
 
         # perform NMS
         preserved_proposals = _nms(video_prediction_info, args.nms)
 
         # perform regression onto the time range
-        interval = preserved_proposals[:, 1:3]
-        regression = preserved_proposals[:, 3:5]
+        if args.regressed:
+            preserved_proposals[:, 1:3] = preserved_proposals[:, 3:5]
+        else:
+            interval = preserved_proposals[:, 1:3]
+            regression = preserved_proposals[:, 3:5]
 
-        interval_center = (interval[:, 0] + interval[:, 1])/2.
-        interval_duration = interval[:, 1] - interval[:, 0]
+            interval_center = (interval[:, 0] + interval[:, 1])/2.
+            interval_duration = interval[:, 1] - interval[:, 0]
 
-        interval_center = interval_center + interval_duration*regression[:, 0]
-        interval_duration = interval_duration * np.exp(regression[:, 1])
+            interval_center = interval_center + interval_duration*regression[:, 0]
+            interval_duration = interval_duration * np.exp(regression[:, 1])
 
-        preserved_proposals[:, 1] = np.maximum(0., interval_center-interval_duration/2.)
-        preserved_proposals[:, 2] = np.minimum(1., interval_center+interval_duration/2.)
+            preserved_proposals[:, 1] = np.maximum(0., interval_center-interval_duration/2.)
+            preserved_proposals[:, 2] = np.minimum(1., interval_center+interval_duration/2.)
 
+        # shape: (nb_proposals, 6), 6 elements for each proposal :[action_id, start, end, center_regression, duration_regression, score]
         return preserved_proposals
 
     video_predictions = {}
@@ -394,7 +479,7 @@ if __name__=="__main__":
         aps = []
         ars = []
         for i, ele in enumerate(zip(match_result_by_action_class, nb_groundtruth_by_action_class)):
-            if i==0:
+            if i==0 and not args.no_background:
                 continue
             m, nbg = ele
             if nbg==0:
